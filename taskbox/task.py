@@ -1,26 +1,30 @@
-import sys
 import time
-from typing import Any, Dict
-from enum import Enum
+from typing import Any, Dict, Callable, Tuple
+from multiprocessing import Event
 
 from taskbox.thread import StoppableThread
-from taskbox.exceptions import FunctionTimedOut
 
 
 class Task:
+    _instantiated = False
+
     def __init__(self) -> None:
-        self.__timeout = None
         self.__main_thread = None
-        self._exception = None
         self.__ret = None
+        self.__callback = None
+        self.__timeout = None
+
         # shared between Multi Task
         self._shared_data: Dict = None
+        self._terminate_event: Event = None
+
+        # instantiated flag
+        self._instantiated = True
 
     def set_timeout(self, timeout: int) -> None:
-
         self.__timeout = timeout
 
-    def set_func_args(self, *args, **kwargs) -> None:
+    def set_func_args(self, args: Tuple = None, kwargs: Dict = None) -> None:
         """
         设置函数参数
 
@@ -29,8 +33,23 @@ class Task:
             kwargs: 关键字参数
 
         """
-        self.__args = args
-        self.__kwargs = kwargs
+        self._args = args
+        self._kwargs = kwargs
+
+    def set_callback(self, callback: Callable) -> None:
+        """
+        Set the callback function
+
+        The callback function will be called after the task is completed,
+        but if the task is terminated, the callback function will not be called.
+
+        Args:
+            callback: The callback function
+
+        """
+        if not callable(callback):
+            raise ValueError("Callback must be callable")
+        self.__callback = callback
 
     def run(self, *args, **kwargs):
         """
@@ -38,15 +57,19 @@ class Task:
         """
         raise NotImplementedError
 
-    def start(self) -> None:
-        # 执行函数
+    def start(self) -> Any:
+        """
+        Start the task
+
+        Returns:
+            Any: None if the `callback` function is set, otherwise the return value of the `run` method
+        """
+
         def funcwrap():
             try:
-                self.__ret = self.run(*self.__args, **self.__kwargs)
+                self.__ret = self.run(*self._args, **self._kwargs)
             except BaseException as e:
                 # Error handling
-                # exc_info = sys.exc_info()
-                # e.__traceback__ = exc_info[2].tb_next
                 self.terminate(e)
 
         self.__main_thread = StoppableThread(target=funcwrap)
@@ -55,51 +78,56 @@ class Task:
         self.__main_thread.start()
         self.__main_thread.join(self.__timeout)
 
-        # Timeout if the thread is still alive
-        if self.__main_thread.is_alive():
-            self.terminate(TimeoutError)
+        # check
+        self.terminate()
 
-    def _set_exception(self, exception: BaseException) -> None:
-        """
-        _set_exception_ - Set the exception and stop the thread
-
-        Args:
-            e (Exception): Exception to set
-        """
-        self._exception = exception
-        self.__main_thread.stop()
+        # Call the callback function
+        if self.__callback is not None:
+            self.__callback(self.__ret)
+            return None
+        else:
+            return self.__ret
 
     def terminate(self, exception: BaseException = None) -> Any:
         if self.__main_thread is None:
             raise ValueError("Task not started")
 
-        if exception is not None:
-            self._set_exception(exception)
-            import traceback
+        # Stop the main thread when an exception is raised or the timeout is exceeded
+        if exception is not None or self.__main_thread.is_alive():
+            wait_time = 0.5
+            if exception is not None:
+                import traceback
 
-            print(traceback.format_exc())
-            raise self._exception
+                print(traceback.format_exc())
+            else:
+                # Timeout if the thread is still alive
+                exception = TimeoutError
+                wait_time = min(0.1, self.__timeout / 50.0)
+                print(f"TimeoutError: {self.__timeout} seconds timeout exceeded")
 
-        if self.__main_thread.is_alive():
-            # We need to stop the thread and raise an exception
-            self.__main_thread.join(min(0.1, self.__timeout / 50.0))
-        else:
-            # We can still cleanup the thread here..
-            # Still give a timeout... just... cuz..
-            self.__main_thread.join(0.5)
+            # Set the terminate event that other tasks can listen to (With Taskbox)
+            if self._terminate_event is not None:
+                self._terminate_event.set()
+            # Stop the main thread
+            self.__main_thread.stop()
+            # Wait for the join thread to finish
+            self.__main_thread.join(wait_time)
 
-        # if self._exception is not None:
-        # raise self._exception from None
-
-        if self.__ret is not None:
-            return self.__ret
+    # --------------- TaskBox Shared Data ---------------
+    def _get_shared_data(self) -> Dict:
+        if self._shared_data is None:
+            raise ValueError("Shared data not set")
+        return self._shared_data
 
     def get_data(self, name: str):
+        shared_data = self._get_shared_data()
         while True:
-            result = self._shared_data.get(name)
+            result = shared_data.get(name)
             if result is not None:
                 return result
             time.sleep(0.1)
 
     def set_data(self, name: str, value: Any):
-        self._shared_data[name] = value
+        shared_data = self._get_shared_data()
+        shared_data[name] = value
+        self._shared_data = shared_data
