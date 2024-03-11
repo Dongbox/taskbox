@@ -10,6 +10,10 @@ __all__ = ("FunctionTimedOut", "RETRY_SAME_TIMEOUT")
 RETRY_SAME_TIMEOUT = "RETRY_SAME_TIMEOUT"
 
 
+class ParamsError(Exception):
+    pass
+
+
 class FunctionTimedOut(BaseException):
     """
     FunctionTimedOut - Exception raised when a function times out

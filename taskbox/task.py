@@ -1,68 +1,72 @@
-import time
+# -*- coding: utf-8 -*-
+"""
+File: task.py
+Author: Dongbox
+Date: 2024-03-11
+Description:
+This module defines the Task class, which is used to create and manage tasks in a multi-threaded environment.
+
+"""
+
 from typing import Any, Dict, Callable, Tuple
-from multiprocessing import Event
+from multiprocessing.synchronize import Event
 
 from taskbox.thread import StoppableThread
+
+from .shared_data import SharedData
 
 
 class Task:
     _instantiated = False
 
     def __init__(self) -> None:
+        """
+        Initializes a new instance of the Task class.
+        """
         self.__main_thread = None
         self.__ret = None
         self.__callback = None
         self.__timeout = None
 
         # shared between Multi Task
-        self._shared_data: Dict = None
+        self.shared_data: SharedData = None
         self._terminate_event: Event = None
 
         # instantiated flag
         self._instantiated = True
 
-    def set_timeout(self, timeout: int) -> None:
-        self.__timeout = timeout
-
-    def set_func_args(self, args: Tuple = None, kwargs: Dict = None) -> None:
+    def set_timeout(self, timeout: float) -> None:
         """
-        设置函数参数
+        Sets the timeout for the task.
 
         Args:
-            args: 位置参数
-            kwargs: 关键字参数
+            timeout (float): The timeout value in seconds.
+        """
+        self.__timeout = timeout
 
+    def set_func_args(self, args: Tuple = (), kwargs: Dict = {}) -> None:
+        """
+        Sets the function arguments for the task.
+
+        Args:
+            args (Tuple, optional): The positional arguments for the function. Defaults to ().
+            kwargs (Dict, optional): The keyword arguments for the function. Defaults to {}.
         """
         self._args = args
         self._kwargs = kwargs
 
-    def set_callback(self, callback: Callable) -> None:
-        """
-        Set the callback function
-
-        The callback function will be called after the task is completed,
-        but if the task is terminated, the callback function will not be called.
-
-        Args:
-            callback: The callback function
-
-        """
-        if not callable(callback):
-            raise ValueError("Callback must be callable")
-        self.__callback = callback
-
     def run(self, *args, **kwargs):
         """
-        子类应该实现这个方法来定义具体的进程任务逻辑
+        This method should be implemented by the subclass to define the specific task logic.
         """
         raise NotImplementedError
 
     def start(self) -> Any:
         """
-        Start the task
+        Starts the task.
 
         Returns:
-            Any: None if the `callback` function is set, otherwise the return value of the `run` method
+            Any: None if the `callback` function is set, otherwise the return value of the `run` method.
         """
 
         def funcwrap():
@@ -81,14 +85,18 @@ class Task:
         # check
         self.terminate()
 
-        # Call the callback function
-        if self.__callback is not None:
-            self.__callback(self.__ret)
-            return None
-        else:
-            return self.__ret
+        return self.__ret
 
     def terminate(self, exception: BaseException = None) -> Any:
+        """
+        Terminates the task.
+
+        Args:
+            exception (BaseException, optional): The exception to be raised. Defaults to None.
+
+        Returns:
+            Any: The return value of the task.
+        """
         if self.__main_thread is None:
             raise ValueError("Task not started")
 
@@ -111,23 +119,4 @@ class Task:
             # Stop the main thread
             self.__main_thread.stop()
             # Wait for the join thread to finish
-            self.__main_thread.join(wait_time)
-
-    # --------------- TaskBox Shared Data ---------------
-    def _get_shared_data(self) -> Dict:
-        if self._shared_data is None:
-            raise ValueError("Shared data not set")
-        return self._shared_data
-
-    def get_data(self, name: str):
-        shared_data = self._get_shared_data()
-        while True:
-            result = shared_data.get(name)
-            if result is not None:
-                return result
-            time.sleep(0.1)
-
-    def set_data(self, name: str, value: Any):
-        shared_data = self._get_shared_data()
-        shared_data[name] = value
-        self._shared_data = shared_data
+            # self.__main_thread.join(wait_time)

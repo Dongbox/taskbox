@@ -1,49 +1,112 @@
-from typing import List, Callable, NamedTuple
+# -*- coding: utf-8 -*-
+"""
+File: box.py
+Author: Dongbox
+Date: 2024-03-11
+Description:
+This module provides a class for managing tasks and executing them in parallel or Series mode.
+
+"""
+from typing import Tuple, Dict, List, Callable, NamedTuple
 from multiprocessing import Manager
 from multiprocessing.pool import Pool, AsyncResult
-
+from enum import Enum
 from .task import Task
+from .exceptions import ParamsError
+from .shared_data import SeriesSharedDict, ParallelSharedDict
 
 
-class TaskDefined(NamedTuple):
+class CandidatedTask(NamedTuple):
     task: Task
-    callback: Callable
     args: tuple
     kwargs: dict
+    callback: Callable
+
+
+class Mode(Enum):
+    PARALLEL = "parallel"
+    SERIES = "series"
 
 
 class TaskBox:
     def __init__(
-        self, max_workers: int = 4, is_timer: bool = False, timeout: float = None
+        self, mode: Mode = Mode.PARALLEL, max_workers: int = 4, timeout: float = None
     ) -> None:
-        # 创建一个进程池
-        self._pool = Pool(processes=max_workers)
+        """
+        Initialize a TaskBox object.
 
-        # 保存当前进程池的所有任务（如果未清空则会包括已完成的任务）
-        self._async_results: List[AsyncResult] = []
+        Args:
+            parallel (bool, optional): Whether to run tasks in parallel. Defaults to True.
+            max_workers (int, optional): The maximum number of worker processes. Defaults to 4.
+            timeout (float, optional): The timeout duration for each task. Defaults to None.
+        """
+        self._mode = mode
 
-        # 进程管理器，用于创建进程间共享对象和信号
-        self._manager = Manager()
+        # Process tasks
+        self._tasks: List[CandidatedTask] = []
 
-        # 全局共享数据
-        self.shared_data = self._manager.dict()
-        self.terminate_event = self._manager.Event()
-
-        # 进程任务
-        self._tasks: List[TaskDefined] = []
-
-        # 是否记录任务执行时间
-        self.is_timer = is_timer
-
-        # 子进程任务超时时长
+        # Timeout duration for child process tasks
         self.timeout = timeout
 
+        # Callback function
+        self._callback = None
+
+        if self._mode == Mode.PARALLEL:
+            # Create a process pool
+            self._pool = Pool(processes=max_workers)
+
+            # Save all current tasks in the process pool (including completed tasks if not cleared)
+            self._results: List[AsyncResult] = []
+
+            # Process manager for creating shared objects and signals between processes
+            self._manager = Manager()
+
+            # Global shared data
+            self.shared_data = ParallelSharedDict(self._manager)
+            self.terminate_event = self._manager.Event()
+        else:
+            self.shared_data = SeriesSharedDict()
+            self.terminate_event = None
+
+    def add_callback_func(self, callback: Callable) -> None:
+        """
+        Add a callback function to be executed after each task completes.
+
+        Args:
+            callback (Callable): The callback function to be added.
+        """
+        if not callable(callback):
+            raise ValueError("Callback must be callable")
+        self._callback = callback
+
+    def error_callback(self, async_result: AsyncResult) -> None:
+        """
+        Error callback function to handle any errors that occur during task execution.
+
+        Args:
+            async_result (AsyncResult): The asynchronous result object.
+        """
+        print(async_result)
+
     def start(self):
-        # 遍历声明的任务，实例化后，查询run方法是否存在，不存在则抛出异常
-        for task_defined in self._tasks:
-            task = task_defined.task
-            # 设置共享数据和终止事件
-            task._shared_data = self.shared_data
+        """
+        Start executing the tasks in the TaskBox.
+        """
+        if self._mode == Mode.PARALLEL:
+            self._parallel_start()
+        else:
+            self._series_start()
+
+    def _parallel_start(self):
+
+        # Default use global callback function
+        callback_func = self._callback
+
+        # Loop through all tasks
+        for candidated_task in self._tasks:
+            task = candidated_task.task
+            # Set global shared data and terminate event
+            task.shared_data = self.shared_data
             task._terminate_event = self.terminate_event
 
             # Set timeout
@@ -51,50 +114,110 @@ class TaskBox:
                 task.set_timeout(self.timeout)
 
             # Set params
-            task.set_func_args(task_defined.args, task_defined.kwargs)
+            task.set_func_args(candidated_task.args, candidated_task.kwargs)
+
+            # If callback is set, submit task to pool with callback (Process AsyncResult object in callback function)
+            if candidated_task.callback is not None:
+                callback_func = candidated_task.callback
 
             # Submit task to pool
             async_result = self._pool.apply_async(
-                task.start, callback=task_defined.callback
+                task.start, callback=callback_func, error_callback=self.error_callback
             )
 
             # Add async_result to global list
-            self._async_results.append(async_result)
+            self._results.append(async_result)
 
-        # 清空任务列表
+        # Clear finished tasks
         self._tasks.clear()
 
-    def submit_task(self, task: Task, callback_func: Callable, *args, **kwargs):
+    def _series_start(self):
         """
-        提交任务到进程池进行执行后添加到任务列表继续维护
+        Start executing the tasks in the TaskBox.
+        """
+        # Loop through all tasks
+        for candidated_task in self._tasks:
+            task = candidated_task.task
+            # Set global shared data and terminate event
+            task.shared_data = self.shared_data
+            task._terminate_event = self.terminate_event
+
+            # Set timeout
+            if self.timeout is not None:
+                task.set_timeout(self.timeout)
+
+            # Set params
+            task.set_func_args(candidated_task.args, candidated_task.kwargs)
+
+            # Start task
+            ret = task.start()
+
+            # If callback is set, execute callback function
+            if candidated_task.callback is not None:
+                candidated_task.callback(ret)
+
+        # Clear finished tasks
+        self._tasks.clear()
+
+    def submit_task(
+        self,
+        task: Task,
+        args: Tuple = (),
+        kwargs: Dict = {},
+        callback_func: Callable = None,
+    ):
+        """
+        Submit a task to the TaskBox for execution.
 
         Args:
-            func (Function):要执行的函数
-            callback_func (Function): 回调函数
+            task (Task): The task to be executed.
+            args (Tuple, optional): Positional arguments for the task. Defaults to ().
+            kwargs (Dict, optional): Keyword arguments for the task. Defaults to {}.
+            callback_func (Callable, optional): The callback function to be executed after the task completes. Defaults to None.
         """
-        # 判断task是否为Task的子类
+        # Check if task is a subclass of Task
         if not isinstance(task, Task):
-            raise ValueError("task must be an instance of Task")
+            raise ParamsError("`task` must be a subclass of Task")
 
-        # 判断task是否完成实例化
+        # Check if task is instantiated
         if not hasattr(task, "_instantiated") or not task._instantiated:
-            raise ValueError("task must be instantiated")
+            raise ParamsError("`task` must be instantiated")
 
-        # 添加任务到任务列表
-        self._tasks.append(TaskDefined(task, callback_func, args, kwargs))
+        # If args has only one element, ensure it is a tuple (with a comma)
+        if not isinstance(args, tuple):
+            raise ParamsError(
+                "`args` must be a tuple, even if it only has one element. Tips: (1, )"
+            )
+
+        # If kwargs is empty, ensure it is a dict
+        if not isinstance(kwargs, dict):
+            raise ParamsError("`kwargs` must be a dict")
+
+        # Add task to the task list
+        self._tasks.append(CandidatedTask(task, args, kwargs, callback_func))
 
     def wait(self):
         """
-        等待进程池中所有任务完成，并清空全局任务记录中的任务
+        Block the main process until all tasks are completed.
         """
-        # 等待所有futures执行完成
-        while self._async_results:
-            for async_result in self._async_results:
-                if async_result.ready():
-                    self._async_results.remove(async_result)
+        if self._mode != Mode.PARALLEL:
+            raise ValueError(
+                "The `wait` method is only available in `Mode.PARALLEL` mode"
+            )
 
-                # 如果终止事件被设置，则终止进程池
-                if self.terminate_event.is_set():
-                    self._pool.terminate()
-                    self._pool.join()
-                    return
+        while self._results:
+            completed_results = []
+            for async_result in self._results:
+                if async_result.ready():
+                    completed_results.append(async_result)
+
+            # Remove completed results from the global list
+            self._results = [
+                result for result in self._results if result not in completed_results
+            ]
+
+            # Terminate the process pool if the terminate event is set
+            if self.terminate_event.is_set():
+                self._pool.terminate()
+                self._pool.join()
+                return
