@@ -28,12 +28,16 @@ class Test2(Task):
 if __name__ == "__main__":
     # 测试
     test1 = Test1()
+    test1.set_func_args(Data("test1->str"))
+    test1.set_callback(lambda x: print(type(x)))
+    
     test2 = Test2()
+    test2.set_func_args(Data("test2->str"))
     # Example for TaskBox
     task_box = TaskBox(timeout=8)
     # task_box.add_callback_func(lambda x: print(x))
-    task_box.submit_task(test1, args=(Data("test1->str"), ), callback_func=lambda x: print(type(x)))
-    task_box.submit_task(test2, args=(Data("test2->str"), ))
+    task_box.submit_task(test1)
+    task_box.submit_task(test2)
     task_box.start()
     task_box.wait()
 
