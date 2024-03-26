@@ -6,7 +6,7 @@ class TaskTests(unittest.TestCase):
     def test_run_method_not_implemented(self):
         task = Task()
         with self.assertRaises(NotImplementedError):
-            task.run()
+            task.execute()
 
     def test_task_not_started(self):
         task = Task()
@@ -21,7 +21,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task(timeout=3)
         task.set_func_args(())
-        task.run = long_running_task
+        task.execute = long_running_task
 
         with self.assertRaises(TimeoutError):
             task.start(wait=True)
@@ -32,7 +32,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task()
         task.set_func_args(())
-        task.run = successful_task
+        task.execute = successful_task
 
         result = task.start(wait=True)
         self.assertEqual(result, "Task completed successfully")
@@ -46,7 +46,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task()
         task.set_func_args(())
-        task.run = successful_task
+        task.execute = successful_task
 
         task.start(wait=False, callback_func=callback)
 
@@ -56,7 +56,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task()
         task.set_func_args((2, 3))
-        task.run = task_with_arguments
+        task.execute = task_with_arguments
 
         result = task.start(wait=True)
         self.assertEqual(result, 5)
@@ -67,7 +67,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task()
         task.set_func_args(kwargs={"arg1": 2, "arg2": 3})
-        task.run = task_with_keyword_arguments
+        task.execute = task_with_keyword_arguments
 
         result = task.start(wait=True)
         self.assertEqual(result, 6)
@@ -80,7 +80,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task(timeout=3)
         task.set_func_args(())
-        task.run = long_running_task
+        task.execute = long_running_task
 
         with self.assertRaises(TimeoutError):
             task.start(wait=False)
@@ -92,7 +92,7 @@ class TaskTests(unittest.TestCase):
 
         task = Task()
         task.set_func_args(())
-        task.run = successful_task
+        task.execute = successful_task
 
         task.start(wait=False)
         task.join()

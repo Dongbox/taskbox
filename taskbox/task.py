@@ -97,7 +97,7 @@ class Task:
 
         self._callback_func = callback_func
 
-    def run(self, *args, **kwargs):
+    def execute(self, *args, **kwargs):
         """
         This method should be implemented by the subclass to define the specific task logic.
         """
@@ -124,14 +124,14 @@ class Task:
                 # Timeout if the thread is still alive
                 exception = TimeoutError
                 print(f"TimeoutError: {self._timeout} seconds timeout exceeded")
-    
+
             # Set the terminate event that other tasks can listen to (With Taskbox)
             if self._terminate_event is not None:
                 self._terminate_event.set()
             self.__main_thread.stop()
 
             raise exception
-        
+
     def start(self, wait=True) -> Any:
         """
         Starts the task.
@@ -143,9 +143,10 @@ class Task:
         Returns:
             Any: None if the `callback` function is set, otherwise the return value of the `run` method.
         """
+
         def funcwrap():
             try:
-                self._ret = self.run(*self._args, **self._kwargs)
+                self._ret = self.execute(*self._args, **self._kwargs)
 
                 # callback
                 if self._callback_func is not None:

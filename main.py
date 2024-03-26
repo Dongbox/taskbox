@@ -1,9 +1,9 @@
 import time
-from taskbox import Task, Data, TaskBox
+from taskbox import Task, Data, TaskBox, ParallelTaskBox, SeriesTaskBox
 
 
 class Test1(Task):
-    def run(self, source_data: Data):
+    def execute(self, source_data: Data):
         # raise ValueError("test1 error")
 
         self.shared_data.set("sha", source_data)
@@ -15,7 +15,7 @@ class Test1(Task):
 
 
 class Test2(Task):
-    def run(self, source_data: Data):
+    def execute(self, source_data: Data):
         # raise SystemExit("test2 error")
         print(source_data.value)
         sha_from_test1: Data = self.shared_data.get("sha")
@@ -29,16 +29,16 @@ if __name__ == "__main__":
     # 测试
     test1 = Test1()
     test1.set_func_args(Data("test1->str"))
-    test1.set_callback(lambda x: print(type(x)))
-    
+    # test1.set_callback(lambda x: print(type(x)))
+
     test2 = Test2()
     test2.set_func_args(Data("test2->str"))
     # Example for TaskBox
-    task_box = TaskBox(timeout=8)
+    task_box = ParallelTaskBox()
     # task_box.add_callback_func(lambda x: print(x))
     task_box.submit_task(test1)
     task_box.submit_task(test2)
-    task_box.start()
+    task_box.start(timeout=8)
     task_box.wait()
 
     # Example for Task
