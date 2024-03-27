@@ -10,15 +10,9 @@ This module provides classes for managing tasks and executing them in different 
 from typing import Tuple, Dict, List, Callable, NamedTuple
 from multiprocessing import Manager
 from multiprocessing.pool import Pool, AsyncResult
-from enum import Enum
 from .task import Task
 from .exceptions import ParamsError
 from .shared_data import SharedData, SeriesSharedDict, ParallelSharedDict
-
-
-class Mode(Enum):
-    PARALLEL = "parallel"
-    SERIES = "series"
 
 
 class TaskBox:

@@ -39,7 +39,7 @@ class Task:
         self._timeout = timeout
 
         # shared between All Task
-        self._shared_data: SharedData = None
+        self.shared_data: SharedData = None
 
         # terminate event for taskbox
         self._terminate_event: Event = None
@@ -83,7 +83,7 @@ class Task:
         Args:
             shared_data (SharedData): The shared data object.
         """
-        self._shared_data = shared_data
+        self.shared_data = shared_data
 
     def set_timeout(self, timeout: float) -> None:
         """
