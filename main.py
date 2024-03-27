@@ -6,7 +6,7 @@ class Test1(Task):
     def execute(self, source_data: Data):
         # raise ValueError("test1 error")
 
-        self.shared_data.set("sha", source_data)
+        self._shared_data.set("sha", source_data)
         print(source_data.value)
         time.sleep(5)
         print("Finished")
@@ -18,7 +18,7 @@ class Test2(Task):
     def execute(self, source_data: Data):
         # raise SystemExit("test2 error")
         print(source_data.value)
-        sha_from_test1: Data = self.shared_data.get("sha")
+        sha_from_test1: Data = self._shared_data.get("sha")
         print("From Test1: ", sha_from_test1.value)
         # time.sleep(10)
         # print(self.get_data('test2'))

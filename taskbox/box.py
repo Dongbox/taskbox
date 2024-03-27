@@ -13,7 +13,7 @@ from multiprocessing.pool import Pool, AsyncResult
 from enum import Enum
 from .task import Task
 from .exceptions import ParamsError
-from .shared_data import SeriesSharedDict, ParallelSharedDict
+from .shared_data import SharedData, SeriesSharedDict, ParallelSharedDict
 
 
 class Mode(Enum):
@@ -33,6 +33,7 @@ class TaskBox:
 
         # Process tasks
         self._tasks: List[Task] = []
+        self._shared_data: SharedData = None
 
     def error_callback(self, async_result: AsyncResult) -> None:
         """
@@ -83,6 +84,11 @@ class ParallelTaskBox(TaskBox):
         max_workers: int = 4,
     ) -> None:
         super().__init__()
+        # Process manager for creating shared objects and signals between processes
+        self._manager = Manager()
+
+        # Global shared data
+        self._shared_data = ParallelSharedDict(self._manager)
 
         # Create a process pool
         self._pool = Pool(processes=max_workers)
@@ -90,24 +96,20 @@ class ParallelTaskBox(TaskBox):
         # Save all current tasks in the process pool (including completed tasks if not cleared)
         self._results: List[AsyncResult] = []
 
-        # Process manager for creating shared objects and signals between processes
-        self._manager = Manager()
-
-        # Global shared data
-        self.shared_data = ParallelSharedDict(self._manager)
-        self.terminate_event = self._manager.Event()
+        # Terminate event to signal the process pool to terminate
+        self._terminate_event = self._manager.Event()
 
     def start(self, timeout: float = None, callback_func: Callable = None):
 
         # Loop through all tasks
         for task in self._tasks:
             # Set global shared data and terminate event
-            task.shared_data = self.shared_data
-            task._terminate_event = self.terminate_event
+            task.set_shared_data(self._shared_data)
+            task.set_terminate_event(self._terminate_event)
 
             # Set timeout if not already set
             if timeout is not None and task.timeout is None:
-                task._timeout = timeout
+                task.set_timeout(timeout)
 
             # Submit task to pool
             async_result = self._pool.apply_async(
@@ -118,15 +120,15 @@ class ParallelTaskBox(TaskBox):
 
             # Add async_result to global list
             self._results.append(async_result)
-        
+
         return self
 
     def reset(self):
         super().reset()
 
         # Clear all results from the process pool
-        self.shared_data = ParallelSharedDict(self._manager)
-        self.terminate_event = self._manager.Event()
+        self._shared_data = ParallelSharedDict(self._manager)
+        self._terminate_event = self._manager.Event()
         self._results = []
 
     def wait(self):
@@ -145,7 +147,7 @@ class ParallelTaskBox(TaskBox):
             ]
 
             # Terminate the process pool if the terminate event is set
-            if self.terminate_event.is_set():
+            if self._terminate_event.is_set():
                 self._pool.terminate()
                 self._pool.join()
                 return
@@ -155,23 +157,20 @@ class SeriesTaskBox(TaskBox):
     def __init__(self) -> None:
         super().__init__()
 
-        self.shared_data = SeriesSharedDict()
+        self._shared_data = SeriesSharedDict()
 
     def start(self, timeout: float = None, callback_func: Callable = None):
         """
         Start executing the tasks in the TaskBox.
         """
+
         # Loop through all tasks
         for task in self._tasks:
             # Set global shared data and terminate event
-            task.shared_data = self.shared_data
-
-            # Set timeout if not already set
-            if timeout is not None and task.timeout is None:
-                task._timeout = timeout
+            task.set_shared_data(self._shared_data)
 
             # Start task
-            ret = task.start(wait=False)
+            ret = task.start(timeout=timeout, wait=True)
 
             if callback_func is not None:
                 callback_func(ret)
@@ -179,4 +178,4 @@ class SeriesTaskBox(TaskBox):
     def reset(self):
         super().reset()
 
-        self.shared_data = SeriesSharedDict()
+        self._shared_data = SeriesSharedDict()

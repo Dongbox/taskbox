@@ -11,7 +11,7 @@ class TaskTests(unittest.TestCase):
     def test_task_not_started(self):
         task = Task()
         with self.assertRaises(ValueError):
-            task.join()
+            task.wait()
 
     def test_task_timeout(self):
         def long_running_task():
@@ -84,7 +84,7 @@ class TaskTests(unittest.TestCase):
 
         with self.assertRaises(TimeoutError):
             task.start(wait=False)
-            task.join()
+            task.wait()
 
     def test_task_join_without_timeout(self):
         def successful_task():
@@ -95,7 +95,7 @@ class TaskTests(unittest.TestCase):
         task.execute = successful_task
 
         task.start(wait=False)
-        task.join()
+        task.wait()
 
         self.assertEqual(task.result, "Task completed successfully")
 

@@ -8,7 +8,7 @@ This module defines the Task class, which is used to create and manage tasks in 
 
 """
 
-from typing import Any, Dict, Callable, Tuple
+from typing import Any, Dict, Callable, Tuple, Optional
 from multiprocessing.synchronize import Event
 from datetime import datetime
 import traceback
@@ -31,15 +31,17 @@ class Task:
 
     _instantiated = False
 
-    def __init__(self, timeout: float = None) -> None:
+    def __init__(self, timeout: Optional[float] = None) -> None:
         """
         Initializes a new instance of the Task class.
         """
         self._ret = None
         self._timeout = timeout
 
-        # shared between Multi Task
-        self.shared_data: SharedData = None
+        # shared between All Task
+        self._shared_data: SharedData = None
+
+        # terminate event for taskbox
         self._terminate_event: Event = None
 
         # instantiated flag
@@ -64,6 +66,24 @@ class Task:
     @property
     def timeout(self) -> float:
         return self._timeout
+
+    def set_terminate_event(self, terminate_event: Event) -> None:
+        """
+        Sets the terminate event for the task.
+
+        Args:
+            terminate_event (Event): The terminate event object.
+        """
+        self._terminate_event = terminate_event
+
+    def set_shared_data(self, shared_data: SharedData) -> None:
+        """
+        Sets the shared data for the task.
+
+        Args:
+            shared_data (SharedData): The shared data object.
+        """
+        self._shared_data = shared_data
 
     def set_timeout(self, timeout: float) -> None:
         """
@@ -103,7 +123,7 @@ class Task:
         """
         raise NotImplementedError
 
-    def _terminate(self, exception: BaseException = None) -> Any:
+    def _terminate(self, exception: Optional[BaseException] = None) -> Any:
         """
         Terminates the task.
 
@@ -132,7 +152,7 @@ class Task:
 
             raise exception
 
-    def start(self, wait=True) -> Any:
+    def start(self, timeout: Optional[float] = None, wait: bool = True) -> Any:
         """
         Starts the task.
 
@@ -143,6 +163,9 @@ class Task:
         Returns:
             Any: None if the `callback` function is set, otherwise the return value of the `run` method.
         """
+        # update timeout if set
+        if timeout is not None:
+            self.set_timeout(timeout)
 
         def funcwrap():
             try:
@@ -159,6 +182,7 @@ class Task:
         self.__main_thread.daemon = True
 
         self.__main_thread.start()
+        self.__start_date = datetime.now()
 
         # Wait for the main thread to finish
         if wait:
@@ -171,7 +195,7 @@ class Task:
             self.__start_date = datetime.now()
             return None
 
-    def join(self) -> None:
+    def wait(self) -> None:
         """
         Wait for the main thread to finish.
         """
@@ -179,23 +203,22 @@ class Task:
             raise ValueError("Task not started")
 
         # Check if start date is set
-        if self.__start_date is not None:
-            # Calculate remaining timeout if timeout is set
-            if self._timeout is not None:
-                remaining_timeout = (
-                    self._timeout - (datetime.now() - self.__start_date).total_seconds()
-                )
-                if remaining_timeout < 0:
-                    # Timeout error
-                    self._terminate(TimeoutError)
-                else:
-                    self.__main_thread.join(remaining_timeout)
+        if self.__start_date is None:
+            return
+
+        # Calculate remaining timeout if timeout is set
+        if self._timeout is not None:
+            remaining_timeout = (
+                self._timeout - (datetime.now() - self.__start_date).total_seconds()
+            )
+            if remaining_timeout < 0:
+                # Timeout error
+                self._terminate(TimeoutError)
             else:
-                # No timeout, simply join the main thread
-                self.__main_thread.join()
+                self.__main_thread.join(remaining_timeout)
         else:
-            # Start date not set, return None
-            return None
+            # No timeout, simply join the main thread
+            self.__main_thread.join()
 
         # Check if the main thread is still alive after joining
         if self.__main_thread.is_alive():
