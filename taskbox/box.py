@@ -7,11 +7,10 @@ Description:
 This module provides classes for managing tasks and executing them in different modes.
 
 """
-from typing import Tuple, Dict, List, Callable, NamedTuple
+from typing import Tuple, Dict, List, Callable
 from multiprocessing import Manager
 from multiprocessing.pool import Pool, AsyncResult
 from .task import Task
-from .exceptions import ParamsError
 from .shared import SharedData, SeriesSharedDict, ParallelSharedDict
 
 
@@ -50,11 +49,11 @@ class TaskBox:
         """
         # Check if task is a subclass of Task
         if not isinstance(task, Task):
-            raise ParamsError("`task` must be a subclass of Task")
+            raise KeyError("`task` must be a subclass of Task")
 
         # Check if task is instantiated
         if not hasattr(task, "_instantiated") or not task._instantiated:
-            raise ParamsError("`task` must be instantiated")
+            raise KeyError("`task` must be instantiated")
 
         # Add task to the task list
         self._tasks.append(task)

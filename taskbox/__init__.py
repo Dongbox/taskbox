@@ -1,6 +1,14 @@
 from .task import Task
-from .data import Data
+from .data import Data, Collection
 from .box import ParallelTaskBox, SeriesTaskBox
-from .exceptions import ParamsError
 
-__all__ = ["Task", "Data", "ParallelTaskBox", "SeriesTaskBox", "ParamsError"]
+__all__ = [
+    # task
+    "Task",
+    # data
+    "Data",
+    "Collection",
+    # box
+    "ParallelTaskBox",
+    "SeriesTaskBox",
+]
