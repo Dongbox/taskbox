@@ -20,7 +20,6 @@ class TaskTests(unittest.TestCase):
             time.sleep(5)
 
         task = Task(timeout=3)
-        task.set_func_args(())
         task.execute = long_running_task
 
         with self.assertRaises(TimeoutError):
@@ -31,7 +30,6 @@ class TaskTests(unittest.TestCase):
             return "Task completed successfully"
 
         task = Task()
-        task.set_func_args(())
         task.execute = successful_task
 
         result = task.start(wait=True)
@@ -45,7 +43,6 @@ class TaskTests(unittest.TestCase):
             return "Task completed successfully"
 
         task = Task()
-        task.set_func_args(())
         task.execute = successful_task
 
         task.start(wait=False, callback_func=callback)
@@ -55,22 +52,11 @@ class TaskTests(unittest.TestCase):
             return arg1 + arg2
 
         task = Task()
-        task.set_func_args((2, 3))
+        task.set_execute_required((2, 3))
         task.execute = task_with_arguments
 
         result = task.start(wait=True)
         self.assertEqual(result, 5)
-
-    def test_task_with_keyword_arguments(self):
-        def task_with_keyword_arguments(arg1, arg2):
-            return arg1 * arg2
-
-        task = Task()
-        task.set_func_args(kwargs={"arg1": 2, "arg2": 3})
-        task.execute = task_with_keyword_arguments
-
-        result = task.start(wait=True)
-        self.assertEqual(result, 6)
 
     def test_task_join_with_timeout(self):
         def long_running_task():
@@ -79,7 +65,6 @@ class TaskTests(unittest.TestCase):
             time.sleep(5)
 
         task = Task(timeout=3)
-        task.set_func_args(())
         task.execute = long_running_task
 
         with self.assertRaises(TimeoutError):
@@ -91,7 +76,6 @@ class TaskTests(unittest.TestCase):
             return "Task completed successfully"
 
         task = Task()
-        task.set_func_args(())
         task.execute = successful_task
 
         task.start(wait=False)

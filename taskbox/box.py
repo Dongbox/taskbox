@@ -12,7 +12,7 @@ from multiprocessing import Manager
 from multiprocessing.pool import Pool, AsyncResult
 from .task import Task
 from .exceptions import ParamsError
-from .shared_data import SharedData, SeriesSharedDict, ParallelSharedDict
+from .shared import SharedData, SeriesSharedDict, ParallelSharedDict
 
 
 class TaskBox:

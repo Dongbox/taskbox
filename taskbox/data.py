@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-File: data_class.py
+File: data.py
 Author: Dongbox
 Date: 2024-03-08
 Description:

@@ -1,5 +1,5 @@
 from taskbox import Data, SeriesTaskBox
-from .task_definitions import PrintTask, PrintInteractiveTask
+from task_definitions import PrintTask, PrintInteractiveTask
 
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     # Submit tasks to the SeriesTaskBox
     for task, data_list in tasks.items():
-        task_box.submit_task(task(*data_list))
+        task_box.submit_task(task(execute_required=data_list))
 
     # Start the SeriesTaskBox with a timeout of 8 seconds
     task_box.start(timeout=8, callback_func=lambda x: print(x))
