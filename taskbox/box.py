@@ -29,9 +29,9 @@ class TaskBox:
         self._tasks: List[Task] = []
         self._shared_data: SharedData = None
 
-    def submit_task(self, task: Task):
+    def add_task(self, task: Task):
         """
-        Submit a task to the TaskBox for execution.
+        Add a task to the TaskBox for execution.
 
         Args:
             task (Task): The task to be executed.
@@ -50,15 +50,15 @@ class TaskBox:
         # Add task to the task list
         self._tasks.append(task)
 
-    def submit_for_loop(self, task_dict: Dict[Task, Sequence]):
+    def add_tasks(self, task_dict: Dict[Task, Sequence]):
         """
-        Submit a dictionary of tasks to the TaskBox for execution.
+        Add a dictionary of tasks to the TaskBox for execution.
 
         Args:
             task_dict (Dict[Task, Sequence]): A dictionary of tasks to be executed.
         """
         for task, data_list in task_dict.items():
-            self.submit_task(task(execute_required=data_list))
+            self.add_task(task(execute_requires=data_list))
 
     def start(self, timeout: float = None, callback_func: Callable = None):
         """

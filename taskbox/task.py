@@ -35,7 +35,7 @@ class Task:
     _instantiated = False
 
     def __init__(
-        self, timeout: Optional[float] = None, execute_required: Sequence = []
+        self, timeout: Optional[float] = None, *, execute_requires: Sequence = []
     ) -> None:
         """
         Initializes a new instance of the Task class.
@@ -44,7 +44,7 @@ class Task:
         self._timeout = timeout
 
         # shared between All Task
-        self.shared_data: SharedData = None
+        self.shared: SharedData = None
 
         # terminate event for taskbox
         self._terminate_event: Event = None
@@ -57,7 +57,7 @@ class Task:
         self.__start_date = None
 
         # Function Arguments Initialization
-        self._execute_required = execute_required
+        self._execute_requires = execute_requires
         self._callback_func = None
 
         # Auto-generated ident
@@ -87,7 +87,7 @@ class Task:
         Args:
             shared_data (SharedData): The shared data object.
         """
-        self.shared_data = shared_data
+        self.shared = shared_data
 
     def set_timeout(self, timeout: float) -> None:
         """
@@ -98,7 +98,7 @@ class Task:
         """
         self._timeout = timeout
 
-    def set_execute_required(self, *execute_required) -> None:
+    def set_execute_requires(self, *execute_requires) -> None:
         """
         Sets the function arguments for the task.
 
@@ -106,22 +106,22 @@ class Task:
             args (Tuple, optional): The positional arguments for the function. Defaults to ().
             kwargs (Dict, optional): The keyword arguments for the function. Defaults to {}.
         """
-        self._execute_required = execute_required
+        self._execute_requires = execute_requires
 
-    def parse_execute_required(self) -> Sequence:
+    def parse_execute_requires(self) -> Sequence:
         """
         Parses the function arguments for the task.
 
         When Collection exists in the arguments, it will be replaced with the actual value.
         """
-        execute_required = []
-        for arg in self._execute_required:
+        execute_requires = []
+        for arg in self._execute_requires:
             if isinstance(arg, Unpack):
                 for data in arg:
-                    execute_required.append(data)
+                    execute_requires.append(data)
             else:
-                execute_required.append(arg)
-        return execute_required
+                execute_requires.append(arg)
+        return execute_requires
 
     def execute(self, *required: Sequence) -> Any:
         """
@@ -175,7 +175,7 @@ class Task:
             Any: None if the `callback` function is set, otherwise the return value of the `run` method.
         """
         # parse execute required
-        execute_required = self.parse_execute_required()
+        execute_requires = self.parse_execute_requires()
 
         # update timeout if set
         if timeout is not None:
@@ -183,7 +183,7 @@ class Task:
 
         def funcwrap():
             try:
-                self._ret = self.execute(*execute_required)
+                self._ret = self.execute(*execute_requires)
 
                 # callback
                 if callback_func is not None:
