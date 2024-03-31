@@ -7,9 +7,10 @@ Description:
 This module provides classes for managing tasks and executing them in different modes.
 
 """
-from typing import Tuple, Dict, List, Callable
+from typing import List, Callable, Any, Dict, Sequence
+from functools import wraps
 from multiprocessing import Manager
-from multiprocessing.pool import Pool, AsyncResult
+from multiprocessing.pool import Pool, ApplyResult
 from .task import Task
 from .shared import SharedData, SeriesSharedDict, ParallelSharedDict
 
@@ -27,15 +28,6 @@ class TaskBox:
         # Process tasks
         self._tasks: List[Task] = []
         self._shared_data: SharedData = None
-
-    def error_callback(self, async_result: AsyncResult) -> None:
-        """
-        Error callback function to handle any errors that occur during task execution.
-
-        Args:
-            async_result (AsyncResult): The asynchronous result object.
-        """
-        print(async_result)
 
     def submit_task(self, task: Task):
         """
@@ -58,6 +50,16 @@ class TaskBox:
         # Add task to the task list
         self._tasks.append(task)
 
+    def submit_for_loop(self, task_dict: Dict[Task, Sequence]):
+        """
+        Submit a dictionary of tasks to the TaskBox for execution.
+
+        Args:
+            task_dict (Dict[Task, Sequence]): A dictionary of tasks to be executed.
+        """
+        for task, data_list in task_dict.items():
+            self.submit_task(task(execute_required=data_list))
+
     def start(self, timeout: float = None, callback_func: Callable = None):
         """
         Start executing the tasks in the TaskBox.
@@ -69,6 +71,18 @@ class TaskBox:
         Reset the TaskBox by clearing all tasks and shared data.
         """
         self._tasks.clear()
+
+
+# Wrap the callback function with the task object
+def wrap_callback_with_task(task: Task, callback_func: Callable):
+    @wraps(callback_func)
+    def wrapper(result: Any):
+        # 将结果保存到相应的 Task 对象中
+        task._ret = result
+        # 调用传入的回调函数进行处理
+        callback_func(result)
+
+    return wrapper
 
 
 class ParallelTaskBox(TaskBox):
@@ -87,10 +101,19 @@ class ParallelTaskBox(TaskBox):
         self._pool = Pool(processes=max_workers)
 
         # Save all current tasks in the process pool (including completed tasks if not cleared)
-        self._results: List[AsyncResult] = []
+        self._results: List[ApplyResult] = []
 
         # Terminate event to signal the process pool to terminate
         self._terminate_event = self._manager.Event()
+
+    def error_callback(self, async_result: Any) -> None:
+        """
+        Error callback function to handle any errors that occur during task execution.
+
+        Args:
+            async_result (ParallelResult): The asynchronous result object.
+        """
+        print(async_result)
 
     def start(self, timeout: float = None, callback_func: Callable = None):
 
@@ -107,7 +130,11 @@ class ParallelTaskBox(TaskBox):
             # Submit task to pool
             async_result = self._pool.apply_async(
                 task.start,
-                callback=callback_func,
+                callback=(
+                    wrap_callback_with_task(task, callback_func)
+                    if callback_func is not None
+                    else None
+                ),
                 error_callback=self.error_callback,
             )
 

@@ -7,7 +7,7 @@ Description:
     Data class to fetch value from data
     
 """
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 
 # Fetch value from a data
@@ -106,26 +106,24 @@ class Data:
 
 
 # Fetch multi value from a data
-class Collection:
+class Unpack:
     """
-    A class representing a collection of data with named attributes.
+    A class that provides a convenient way to access attributes or items from a data object.
 
-    Attributes:
-        data (Any): The data object containing the attributes.
-        names (list): The list of attribute names.
-
-    Methods:
-        __init__(self, data: Any, names: list) -> None: Initializes a new instance of the Collection class.
-        __getitem__(self, key: str) -> Any: Retrieves the value of the specified attribute.
+    Args:
+        data (Any): The data object from which to extract attributes or items.
+        names (Sequence): A sequence of attribute or item names to extract from the data object.
 
     Raises:
-        ValueError: If an attribute name is not found in the data object.
         TypeError: If the key provided is not a string.
-        KeyError: If the key provided is not found in the attribute names.
+        KeyError: If the key provided is not found in the names sequence.
+
+    Returns:
+        Any: The value of the attribute or item corresponding to the provided key.
 
     """
 
-    def __init__(self, data: Any, names: list) -> None:
+    def __init__(self, data: Any, names: Sequence) -> None:
         self.__data = data
         self.__names = names
 
@@ -142,3 +140,8 @@ class Collection:
             return self.__data.value[key]
         else:
             return getattr(self.__data, key)
+
+    def __iter__(self):
+        # Return an iterator over the attribute names with their values
+        for name in self.__names:
+            yield self[name]

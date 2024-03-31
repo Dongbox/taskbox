@@ -11,11 +11,12 @@ This module defines the Task class, which is used to create and manage tasks in 
 import os
 import ctypes
 import threading
-from typing import Any, Dict, Callable, Tuple, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 from multiprocessing.synchronize import Event
 from datetime import datetime
 import traceback
 from .shared import SharedData
+from .data import Unpack
 
 
 class Task:
@@ -107,17 +108,20 @@ class Task:
         """
         self._execute_required = execute_required
 
-    def set_callback(self, callback_func: Callable) -> None:
+    def parse_execute_required(self) -> Sequence:
         """
-        Sets the callback function for the task.
+        Parses the function arguments for the task.
 
-        Args:
-            callback_func (Callable): The callback function to be called after the task finishes.
+        When Collection exists in the arguments, it will be replaced with the actual value.
         """
-        if not callable(callback_func):
-            raise ValueError("callback_func must be callable")
-
-        self._callback_func = callback_func
+        execute_required = []
+        for arg in self._execute_required:
+            if isinstance(arg, Unpack):
+                for data in arg:
+                    execute_required.append(data)
+            else:
+                execute_required.append(arg)
+        return execute_required
 
     def execute(self, *required: Sequence) -> Any:
         """
@@ -154,7 +158,12 @@ class Task:
 
             raise exception
 
-    def start(self, timeout: Optional[float] = None, wait: bool = True) -> Any:
+    def start(
+        self,
+        timeout: Optional[float] = None,
+        wait: bool = True,
+        callback_func: Optional[Callable] = None,
+    ) -> Any:
         """
         Starts the task.
 
@@ -165,17 +174,20 @@ class Task:
         Returns:
             Any: None if the `callback` function is set, otherwise the return value of the `run` method.
         """
+        # parse execute required
+        execute_required = self.parse_execute_required()
+
         # update timeout if set
         if timeout is not None:
             self.set_timeout(timeout)
 
         def funcwrap():
             try:
-                self._ret = self.execute(*self._execute_required)
+                self._ret = self.execute(*execute_required)
 
                 # callback
-                if self._callback_func is not None:
-                    self._callback_func(self._ret)
+                if callback_func is not None:
+                    callback_func(self._ret)
             except BaseException as e:
                 # Error handling
                 self._terminate(e)
