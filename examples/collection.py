@@ -1,21 +1,22 @@
 import taskbox as tb
 
 # From Dict
-collection = tb.Collection(
+collection = tb.Unpack(
     data={"name": "John", "age": 25},
     names=["name"],
 )
 
-print("Dict: ", collection["name"])  # ['John', 25]
+print("Dict Type: ", *collection)  # ['John']
+
 try:
     collection["age"]
 except KeyError as e:
     print("Dict Error: ", e)
 
 # From Data
-collection = tb.Collection(
+collection = tb.Unpack(
     data=tb.Data({"name": "John", "age": 25}),
     names=["name", "age"],
 )
 
-print("Data: ", collection["name"])  # ['John', 25]
+print("Data Type: ", *collection)  # ['John', 25]

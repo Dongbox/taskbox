@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     # Submit tasks to the ParallelTaskBox
     for task, data_list in tasks.items():
-        task_box.submit_task(task(execute_required=data_list))
+        task_box.add_task(task(execute_requires=data_list))
 
     # Start the ParallelTaskBox with a timeout of 8 seconds
     task_box.start(timeout=8, callback_func=lambda x: print(x))
