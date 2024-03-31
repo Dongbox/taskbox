@@ -1,12 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-File: data.py
-Author: Dongbox
-Date: 2024-03-08
-Description:
-    Data class to fetch value from data
-    
-"""
+# Copyright (c) 2023, 2024 Dongbo Xie All Rights Reserved.
+#
+# Licensed under the Lesser GNU Public License Version 3, LGPLv3. You should have recieved a copy of this with the source distribution as
+# LICENSE, otherwise it is available at <https://github.com/Dongbox/taskbox/LICENSE>.
+
 from typing import Any, Optional, Sequence
 
 

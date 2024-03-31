@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
-"""
-File: task.py
-Author: Dongbox
-Date: 2024-03-11
-Description:
-This module defines the Task class, which is used to create and manage tasks in a multi-threaded environment.
-
-"""
+# Copyright (c) 2016, 2017, 2019 Timothy Savannah All Rights Reserved.
+#
+# Licensed under the Lesser GNU Public License Version 3, LGPLv3. You should have received a copy of this with the source distribution as
+# LICENSE, otherwise it is available at https://github.com/kata198/func_timeout/LICENSE
+#
+# Copyright (c) 2023, 2024 Dongbo Xie All Rights Reserved.
+#
+# Licensed under the Lesser GNU Public License Version 3, LGPLv3. You should have recieved a copy of this with the source distribution as
+# LICENSE, otherwise it is available at <https://github.com/Dongbox/taskbox/LICENSE>.
 
 import os
 import ctypes

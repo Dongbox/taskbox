@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-File: box.py
-Author: Dongbox
-Date: 2024-03-11
-Description:
-This module provides classes for managing tasks and executing them in different modes.
+# Copyright (c) 2023, 2024 Dongbo Xie All Rights Reserved.
+#
+# Licensed under the Lesser GNU Public License Version 3, LGPLv3. You should have recieved a copy of this with the source distribution as
+# LICENSE, otherwise it is available at <https://github.com/Dongbox/taskbox/LICENSE>.
 
-"""
+
 from typing import List, Callable, Any, Dict, Sequence
 from functools import wraps
 from multiprocessing import Manager

@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-File: shared_data.py
-Author: Dongbox
-Date: 2024-03-11
-Description: This module provides a class for managing shared data using a shared dictionary.
-"""
+# Copyright (c) 2023, 2024 Dongbo Xie All Rights Reserved.
+#
+# Licensed under the Lesser GNU Public License Version 3, LGPLv3. You should have recieved a copy of this with the source distribution as
+# LICENSE, otherwise it is available at <https://github.com/Dongbox/taskbox/LICENSE>.
+
 from abc import abstractmethod
 from typing import Any, Dict
 import time
