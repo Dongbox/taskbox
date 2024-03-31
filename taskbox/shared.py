@@ -102,7 +102,7 @@ class ParallelSharedDict(SharedData):
         self._shared_data = shared_data
 
 
-class SeriesSharedDict(SharedData):
+class SerialSharedDict(SharedData):
     def __init__(self):
         """
         Initializes a SeriesSharedDict object.

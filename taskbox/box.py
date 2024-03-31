@@ -9,7 +9,7 @@ from functools import wraps
 from multiprocessing import Manager
 from multiprocessing.pool import Pool, ApplyResult
 from .task import Task
-from .shared import SharedData, SeriesSharedDict, ParallelSharedDict
+from .shared import SharedData, SerialSharedDict, ParallelSharedDict
 
 
 class TaskBox:
@@ -170,11 +170,11 @@ class ParallelTaskBox(TaskBox):
                 return
 
 
-class SeriesTaskBox(TaskBox):
+class SerialTaskBox(TaskBox):
     def __init__(self) -> None:
         super().__init__()
 
-        self._shared_data = SeriesSharedDict()
+        self._shared_data = SerialSharedDict()
 
     def start(self, timeout: float = None, callback_func: Callable = None):
         """
@@ -195,4 +195,4 @@ class SeriesTaskBox(TaskBox):
     def reset(self):
         super().reset()
 
-        self._shared_data = SeriesSharedDict()
+        self._shared_data = SerialSharedDict()

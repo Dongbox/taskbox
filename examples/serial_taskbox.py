@@ -1,4 +1,4 @@
-from taskbox import Data, SeriesTaskBox, Task
+from taskbox import Data, SerialTaskBox, Task
 from task_definitions import PrintTask, PrintInteractiveTask
 
 
@@ -9,7 +9,7 @@ if __name__ == "__main__":
         PrintInteractiveTask: [Data("Interactive task in series task")],
     }
     # Define a SeriesTaskBox
-    task_box = SeriesTaskBox()
+    task_box = SerialTaskBox()
 
     # Submit tasks to the SeriesTaskBox
     task_box.add_tasks(tasks)

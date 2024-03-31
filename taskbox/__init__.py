@@ -5,7 +5,7 @@
 
 from .task import Task
 from .data import Data, Unpack
-from .box import ParallelTaskBox, SeriesTaskBox
+from .box import ParallelTaskBox, SerialTaskBox
 
 __all__ = [
     # task
@@ -15,5 +15,5 @@ __all__ = [
     "Unpack",
     # box
     "ParallelTaskBox",
-    "SeriesTaskBox",
+    "SerialTaskBox",
 ]
