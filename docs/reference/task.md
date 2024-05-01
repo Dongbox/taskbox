@@ -1,0 +1,2 @@
+::: taskbox.Task
+    handler: python
