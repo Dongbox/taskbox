@@ -7,10 +7,12 @@
 from typing import List, Callable, Any, Dict, Sequence
 from functools import wraps
 from multiprocessing import Manager
+from multiprocessing.synchronize import Event
+
 from multiprocessing.pool import Pool, ApplyResult
 from .task import Task
 from .shared import SharedData, SerialSharedDict, ParallelSharedDict
-
+from .base import TerminatedData
 
 class TaskBox:
     def __init__(self) -> None:
@@ -68,16 +70,26 @@ class TaskBox:
         Reset the TaskBox by clearing all tasks and shared data.
         """
         self._tasks.clear()
-
+    
+    def wait(self):
+        # do nothing
+        pass
 
 # Wrap the callback function with the task object
-def wrap_callback_with_task(task: Task, callback_func: Callable):
+def wrap_callback_with_task(
+    task: Task, terminate_data: TerminatedData, callback_func: Callable
+):
     @wraps(callback_func)
     def wrapper(result: Any):
-        # 将结果保存到相应的 Task 对象中
-        task._ret = result
-        # 调用传入的回调函数进行处理
-        callback_func(result)
+        try:
+            # 将结果保存到相应的 Task 对象中
+            task._ret = result
+            # 调用传入的回调函数进行处理
+            callback_func(result)
+        except Exception:
+            import traceback
+            terminate_data.set_err_msg(traceback.format_exc())
+            terminate_data.set_event()
 
     return wrapper
 
@@ -101,7 +113,7 @@ class ParallelTaskBox(TaskBox):
         self._results: List[ApplyResult] = []
 
         # Terminate event to signal the process pool to terminate
-        self._terminate_event = self._manager.Event()
+        self._terminated_data = TerminatedData(self._manager.Event(), self._manager.Value('s', ""))
 
     def error_callback(self, async_result: Any) -> None:
         """
@@ -110,7 +122,11 @@ class ParallelTaskBox(TaskBox):
         Args:
             async_result (ParallelResult): The asynchronous result object.
         """
-        print(async_result)
+        import traceback
+        
+        self._terminated_data.set_err_msg(traceback.format_exc())
+        self._terminated_data.set_event()
+
 
     def start(self, timeout: float = None, callback_func: Callable = None):
 
@@ -118,8 +134,11 @@ class ParallelTaskBox(TaskBox):
         for task in self._tasks:
             # Set global shared data and terminate event
             task.set_shared_data(self._shared_data)
-            task.set_terminate_event(self._terminate_event)
-
+            task.set_terminate_event(self._terminated_data)
+            
+            # Set callback function if not already set
+            if task._callback_func is not None:
+                callback_func = task._callback_func
             # Set timeout if not already set
             if timeout is not None and task.timeout is None:
                 task.set_timeout(timeout)
@@ -128,7 +147,7 @@ class ParallelTaskBox(TaskBox):
             async_result = self._pool.apply_async(
                 task.start,
                 callback=(
-                    wrap_callback_with_task(task, callback_func)
+                    wrap_callback_with_task(task, self._terminated_data, callback_func)
                     if callback_func is not None
                     else None
                 ),
@@ -145,7 +164,7 @@ class ParallelTaskBox(TaskBox):
 
         # Clear all results from the process pool
         self._shared_data = ParallelSharedDict(self._manager)
-        self._terminate_event = self._manager.Event()
+        self._terminated_data = TerminatedData(self._manager.Event(), self._manager.Value('s', ""))
         self._results = []
 
     def wait(self):
@@ -164,10 +183,11 @@ class ParallelTaskBox(TaskBox):
             ]
 
             # Terminate the process pool if the terminate event is set
-            if self._terminate_event.is_set():
+            if self._terminated_data.event.is_set():
                 self._pool.terminate()
                 self._pool.join()
-                return
+
+                raise RuntimeError(self._terminated_data.err_msg.value)
 
 
 class SerialTaskBox(TaskBox):
@@ -191,6 +211,8 @@ class SerialTaskBox(TaskBox):
 
             if callback_func is not None:
                 callback_func(ret)
+                
+        return self
 
     def reset(self):
         super().reset()

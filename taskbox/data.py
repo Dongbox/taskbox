@@ -103,27 +103,31 @@ class Data:
 
 # Fetch multi value from a data
 class Unpack:
-    """
-    A class that provides a convenient way to access attributes or items from a data object.
-
-    Args:
-        data (Any): The data object from which to extract attributes or items.
-        names (Sequence): A sequence of attribute or item names to extract from the data object.
-
-    Raises:
-        TypeError: If the key provided is not a string.
-        KeyError: If the key provided is not found in the names sequence.
-
-    Returns:
-        Any: The value of the attribute or item corresponding to the provided key.
-
-    """
-
     def __init__(self, data: Any, names: Sequence) -> None:
+        """
+        A class that provides a convenient way to access attributes or items from a data object.
+
+        Args:
+            data (Any): The data object from which to extract attributes or items.
+            names (Sequence): A sequence of attribute or item names to extract from the data object.
+        """
         self.__data = data
         self.__names = names
 
     def __getitem__(self, key: str) -> Any:
+        """
+        Get the value of the attribute or item corresponding to the provided key.
+
+        Args:
+            key (str): key of the mapping value
+
+        Raises:
+            TypeError: If the key is not a string.
+            KeyError: If the key is not found in the names sequence.
+
+        Returns:
+            Any: value of the attribute or item corresponding to the provided key
+        """
         if not isinstance(key, str):
             raise TypeError("key must be a string")
 
@@ -137,7 +141,12 @@ class Unpack:
         else:
             return getattr(self.__data, key)
 
-    def __iter__(self):
-        # Return an iterator over the attribute names with their values
+    def __iter__(self) -> Any:
+        """
+            Return an iterator over the attribute names with their values
+
+        Yields:
+            Any: values that corresponds to the attribute name
+        """
         for name in self.__names:
             yield self[name]

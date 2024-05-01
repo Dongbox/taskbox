@@ -79,9 +79,8 @@ class ParallelSharedDict(SharedData):
         Raises:
             ValueError: If the shared data is not set.
         """
-        shared_data = self._get_shared_data()
         while True:
-            result = shared_data.get(name)
+            result = self._shared_data.get(name)
             if result is not None:
                 return result
             time.sleep(0.1)
@@ -97,9 +96,7 @@ class ParallelSharedDict(SharedData):
         Raises:
             ValueError: If the shared data is not set.
         """
-        shared_data = self._get_shared_data()
-        shared_data[name] = value
-        self._shared_data = shared_data
+        self._shared_data[name] = value
 
 
 class SerialSharedDict(SharedData):

@@ -15,9 +15,10 @@ from typing import Any, Callable, Optional, Sequence
 from multiprocessing.synchronize import Event
 from datetime import datetime
 import traceback
-from .shared import SharedData
-from .data import Unpack
 
+from .shared import SharedData
+from .data import Unpack, Data
+from .base import TerminatedData
 
 class Task:
     """
@@ -27,9 +28,6 @@ class Task:
         NotImplementedError: If the `run` method is not implemented by the subclass.
         ValueError: If the task is not started before calling other methods.
         TimeoutError: If the task exceeds the specified timeout.
-
-    Returns:
-        Any: The return value of the task.
     """
 
     _instantiated = False
@@ -47,7 +45,7 @@ class Task:
         self.shared: SharedData = None
 
         # terminate event for taskbox
-        self._terminate_event: Event = None
+        self._terminate_data: TerminatedData = None
 
         # instantiated flag
         self._instantiated = True
@@ -59,6 +57,7 @@ class Task:
         # Function Arguments Initialization
         self._execute_requires = execute_requires
         self._callback_func = None
+        self._error_callback_func = None
 
         # Auto-generated ident
         self.ident = self._generate_ident()
@@ -71,14 +70,20 @@ class Task:
     def timeout(self) -> float:
         return self._timeout
 
-    def set_terminate_event(self, terminate_event: Event) -> None:
+    def set_terminate_event(self, terminate_data: TerminatedData) -> None:
         """
-        Sets the terminate event for the task.
+        Sets the terminate data for the task.
 
         Args:
-            terminate_event (Event): The terminate event object.
+            terminate_data (TerminatedData): The terminate data object.
         """
-        self._terminate_event = terminate_event
+        self._terminate_data = terminate_data
+
+    def set_callback_func(self, callback_func: Callable) -> None:
+        if not isinstance(callback_func, Callable):
+            raise ValueError(f"[{self.__class__.__name__}]: `callback_func` must be a callable function")
+        
+        self._callback_func = callback_func
 
     def set_shared_data(self, shared_data: SharedData) -> None:
         """
@@ -103,8 +108,7 @@ class Task:
         Sets the function arguments for the task.
 
         Args:
-            args (Tuple, optional): The positional arguments for the function. Defaults to ().
-            kwargs (Dict, optional): The keyword arguments for the function. Defaults to {}.
+            execute_requires (Any): The function arguments.
         """
         self._execute_requires = execute_requires
 
@@ -119,8 +123,11 @@ class Task:
             if isinstance(arg, Unpack):
                 for data in arg:
                     execute_requires.append(data)
+            elif isinstance(arg, Data):
+                execute_requires.append(arg.value)
             else:
                 execute_requires.append(arg)
+                
         return execute_requires
 
     def execute(self, *required: Sequence) -> Any:
@@ -145,17 +152,19 @@ class Task:
         # Stop the main thread when an exception is raised or the timeout is exceeded
         if exception is not None or self.__main_thread.is_alive():
             if exception is not None:
-                print(traceback.format_exc())
+                err_msg = traceback.format_exc()
             else:
                 # Timeout if the thread is still alive
                 exception = TimeoutError
-                print(f"TimeoutError: {self._timeout} seconds timeout exceeded")
+                err_msg = f"TimeoutError: {self._timeout} seconds timeout exceeded"
 
             # Set the terminate event that other tasks can listen to (With Taskbox)
-            if self._terminate_event is not None:
-                self._terminate_event.set()
+            if self._terminate_data is not None:
+                self._terminate_data.set_event()
+                self._terminate_data.set_err_msg(err_msg)
             self.__main_thread.stop()
 
+            self._error_callback_func(exception)
             raise exception
 
     def start(
@@ -163,6 +172,7 @@ class Task:
         timeout: Optional[float] = None,
         wait: bool = True,
         callback_func: Optional[Callable] = None,
+        error_callback_func: Optional[Callable] = None,
     ) -> Any:
         """
         Starts the task.
@@ -176,6 +186,8 @@ class Task:
         """
         # parse execute required
         execute_requires = self.parse_execute_requires()
+        
+        self._error_callback_func = error_callback_func
 
         # update timeout if set
         if timeout is not None:
@@ -188,6 +200,7 @@ class Task:
                 # callback
                 if callback_func is not None:
                     callback_func(self._ret)
+                
             except BaseException as e:
                 # Error handling
                 self._terminate(e)
