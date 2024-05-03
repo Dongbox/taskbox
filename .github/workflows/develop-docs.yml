@@ -28,4 +28,5 @@ jobs:
       - name: Install Dependencies
         run: pip install mkdocs-material 'mkdocstrings[python]' mike
       - name: Build Docs Website
-        run: mike gh-deploy --force
+        run: mike deploy gh-deploy --push
+        
