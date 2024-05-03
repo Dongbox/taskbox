@@ -1,4 +1,4 @@
-name: ci 
+name: Build/Publish Develop Docs
 on:
   push:
     branches:
@@ -25,5 +25,7 @@ jobs:
           path: .cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs-material 'mkdocstrings[python]'
-      - run: mkdocs gh-deploy --force
+      - name: Install Dependencies
+        run: pip install mkdocs-material 'mkdocstrings[python]' mike
+      - name: Build Docs Website
+        run: mike gh-deploy --force
